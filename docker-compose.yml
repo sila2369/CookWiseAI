@@ -1,0 +1,58 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: cookwise-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: cookwise
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - cookwise-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cookwise-api
+    env_file:
+      - .env
+    environment:
+      APP_NAME: "CookWise API"
+      APP_ENV: production
+      APP_HOST: "0.0.0.0"
+      APP_PORT: "8000"
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DB: cookwise
+      SECRET_KEY: ${SECRET_KEY:-default-secret-key-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      DEBUG: "False"
+      USE_FIREBASE_AUTH: "True"
+      FIREBASE_CREDENTIALS_PATH: "firebase-credentials.json"
+      FIREBASE_PROJECT_ID: "cookewise"
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - cookwise-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  cookwise-network:
+    driver: bridge
